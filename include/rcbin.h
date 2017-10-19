@@ -30,6 +30,8 @@
 #endif
 
 #define RCBIN_PLATFORM_PREFIX ""
+#define RCBIN_MAGIC 0x3CB1
+#define RCBIN_SECTION "__rcbin_internal_entries_section"
 
 
 #ifdef RCBIN_INTERNAL
@@ -47,8 +49,6 @@ struct rcbin_entry_header {
     uint64_t name_sz, data_sz, offs;
 };
 
-
-#define RCBIN_MAGIC 0x3CB1
 
 
 #endif // RCBIN_INTERNAL

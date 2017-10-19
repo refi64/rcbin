@@ -38,7 +38,7 @@ void rcbin_lookup(const char* name, const void** data_out, size_t* sz_out) {
 
 // This table will be modified by rcbin to contain pointers to the different resources.
 char __rcbin_internal_entries[RCBIN_HEADER_SIZE]
-                __attribute__((__section__("__rcbin_internal_entries"))) = {0};
+                __attribute__((__section__(RCBIN_SECTION))) = {0};
 // Contains the rcbin binary resource data of the executable file.
 static void* current_exe_data = NULL;
 

@@ -90,14 +90,13 @@ int ctx_init(rcbin_context* ctx, const char* path) {
 
     ctx->entries = NULL;
 
-    // Find the __rcbin_internal_entries section.
+    // Find the rcbin entries section.
     Elf_Scn* scn = NULL;
     while ((scn = elf_nextscn(ctx->e, scn))) {
         GElf_Shdr shdr;
         gelf_getshdr(scn, &shdr);
 
-        if (strcmp(elf_strptr(ctx->e, shstrndx, shdr.sh_name),
-                   "__rcbin_internal_entries") == 0) {
+        if (strcmp(elf_strptr(ctx->e, shstrndx, shdr.sh_name), RCBIN_SECTION) == 0) {
             // Grab the data and make a new, mutable version.
             Elf_Data cur_entries_data = *elf_getdata(scn, NULL);
 
