@@ -124,8 +124,6 @@ int ctx_init(rcbin_context* ctx, const char* path) {
             h.offs = ctx->data_in_file_offs;
             memcpy(ctx->entries, &h, sizeof(h));
             ctx->entries += sizeof(h);
-
-            /* puts("added section"); */
         }
     }
 
@@ -199,7 +197,7 @@ void usage(const char* self) {
 
 
 int read_file_data(const char* path, void** data_out, size_t* sz_out) {
-    FILE* fp = fopen(path, "r");
+    FILE* fp = fopen(path, "rb");
     if (fp == NULL) return 0;
 
     if (fseek(fp, 0, SEEK_END) != 0) return 0;

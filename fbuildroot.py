@@ -37,10 +37,11 @@ def configure(ctx):
         platform = guess_platform(ctx)
 
     flags = ctx.options.cflag
+    posix_flags = ['-Wall', '-Werror']
     clang_flags = []
 
     if ctx.options.use_color:
-        flags.append('-fdiagnostics-color')
+        posix_flags.append('-fdiagnostics-color')
     if ctx.options.release:
         debug = False
         optimize = True
@@ -49,11 +50,12 @@ def configure(ctx):
         optimize = False
         clang_flags.append('-fno-limit-debug-info')
 
-    c = guess_static(ctx, platform=platform, cross_compiler=True, exe=ctx.options.cc,
-                     flags=flags, debug=debug, optimize=optimize, platform_options=[
+    c = guess_static(ctx, platform=platform, exe=ctx.options.cc, flags=flags,
+                     debug=debug, optimize=optimize, platform_options=[
                         ({'clang'}, {'flags+': clang_flags}),
-                        ({'posix'}, {'flags+': ['-Wall', '-Werror'],
-                                     'external_libs+': ['m']}),
+                        ({'posix'}, {'flags+': posix_flags,
+                                     'external_libs+': ['m'],
+                                     'cross_compiler': True}),
                     ])
 
     external_libs = []
