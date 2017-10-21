@@ -16,11 +16,7 @@ int main() {
     if (message_data.data == NULL) {
         puts("Failed to retrieve message.");
     } else {
-        char* s = malloc(message_data.sz+1);
-        memcpy(s, message_data.data, message_data.sz);
-        s[message_data.sz] = 0;
-        puts(s);
-        free(s);
+        printf("%.*s\n", (int)message_data.sz, message_data.data);
     }
 
     return 0;
