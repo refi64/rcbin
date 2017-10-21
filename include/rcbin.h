@@ -31,11 +31,11 @@
 
 #define RCBIN_PLATFORM_PREFIX ""
 #define RCBIN_MAGIC 0x3CB1
-#define RCBIN_SECTION "__rcbin_internal_entries_section"
 
 
 #ifdef RCBIN_INTERNAL
 
+#define RCBIN_SECTION "__rcbin_internal_entries_section"
 
 typedef struct rcbin_root_header rcbin_root_header;
 typedef struct rcbin_entry_header rcbin_entry_header;
