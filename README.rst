@@ -8,7 +8,7 @@ Ever wanted to change your version number after compiling your binary, or allow 
 else to embed something into it after it's been built? Trying to embed a scripting language
 into native binaries, except you need to embed the script *after* normal compilation?
 
-***rcbin may be what you're looking for!***
+**rcbin may be what you're looking for!**
 
 Build instructions
 ******************
