@@ -20,3 +20,8 @@ target_link_libraries(rcbin PUBLIC ${LIBELF_LIBRARIES})
 
 add_executable(tst tst.c)
 target_link_libraries(tst librcbin)
+
+install(TARGETS librcbin rcbin
+        RUNTIME DESTINATION bin
+        ARCHIVE DESTINATION lib)
+install(FILES include/rcbin.h DESTINATION include)
