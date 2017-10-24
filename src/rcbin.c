@@ -61,8 +61,8 @@ int ctx_save(rcbin_context* ctx) {
 struct rcbin_context {
     int fd;
     Elf* e;
-    void* entries, * entries_end;
-    size_t data_in_file_offs;
+    size_t root_in_file_offs, data_in_file_offs;
+    rcbin_root root;
 
     void* data;
     size_t data_sz, data_offs;
@@ -81,14 +81,14 @@ int ctx_init(rcbin_context* ctx, const char* path) {
 
     lseek(ctx->fd, 0, SEEK_SET);
 
-    ctx->e = elf_begin(ctx->fd, ELF_C_RDWR, NULL);
+    ctx->e = elf_begin(ctx->fd, ELF_C_READ, NULL);
     if (ctx->e == NULL) return 0;
     if (elf_kind(ctx->e) != ELF_K_ELF) return 0;
 
     size_t shstrndx;
     elf_getshdrstrndx(ctx->e, &shstrndx);
 
-    ctx->entries = NULL;
+    ctx->root.magic = 0;
 
     // Find the rcbin entries section.
     Elf_Scn* scn = NULL;
@@ -97,32 +97,19 @@ int ctx_init(rcbin_context* ctx, const char* path) {
         gelf_getshdr(scn, &shdr);
 
         if (strcmp(elf_strptr(ctx->e, shstrndx, shdr.sh_name), RCBIN_SECTION) == 0) {
-            // Grab the data and make a new, mutable version.
-            Elf_Data cur_entries_data = *elf_getdata(scn, NULL);
+            // Grab the root info.
+            Elf_Data* root_data = elf_getdata(scn, NULL);
 
-            rcbin_root_header* prev_h = cur_entries_data.d_buf;
-            if (prev_h->magic == RCBIN_MAGIC) {
+            rcbin_root* prev_r = root_data->d_buf;
+            if (prev_r->magic == RCBIN_MAGIC) {
                 // rcbin has already been run once; keep the file offsets identical.
-                ctx->data_in_file_offs = prev_h->offs;
+                ctx->data_in_file_offs = prev_r->offs;
             }
 
-            Elf_Data* new_entries_data = elf_newdata(scn);
-            new_entries_data->d_align = cur_entries_data.d_align;
-            new_entries_data->d_buf = calloc(cur_entries_data.d_size, 1);
-            new_entries_data->d_type = cur_entries_data.d_type;
-            new_entries_data->d_off = cur_entries_data.d_off;
-            new_entries_data->d_size = cur_entries_data.d_size;
-            new_entries_data->d_version = cur_entries_data.d_version;
-
-            ctx->entries = new_entries_data->d_buf;
-            ctx->entries_end = ctx->entries + new_entries_data->d_size;
-
-            // Write the root header info.
-            rcbin_root_header h;
-            h.magic = RCBIN_MAGIC;
-            h.offs = ctx->data_in_file_offs;
-            memcpy(ctx->entries, &h, sizeof(h));
-            ctx->entries += sizeof(h);
+            // Save the root header.
+            ctx->root.magic = RCBIN_MAGIC;
+            ctx->root.offs = ctx->data_in_file_offs;
+            ctx->root_in_file_offs = shdr.sh_offset + root_data->d_off;
         }
     }
 
@@ -130,55 +117,64 @@ int ctx_init(rcbin_context* ctx, const char* path) {
     ctx->data_sz = 2;
     ctx->data_offs = 0;
 
-    return ctx->entries != NULL;
+    return ctx->root.magic != 0;
 }
 
 
-int ctx_add(rcbin_context* ctx, const char* name, void* data, size_t data_sz) {
-    size_t current_offset = ctx->data_offs;
-    ctx->data_offs += data_sz;
+int ctx_grow(rcbin_context* ctx, int expand) {
+    ctx->data_offs += expand;
 
-    // Grow the data buffer if necessary.
+    // If growing is necessary, grow up till the next power of two.
     if (ctx->data_offs > ctx->data_sz) {
         ctx->data_sz = NEXT_POWER_OF_2(ctx->data_offs);
         ctx->data = realloc(ctx->data, ctx->data_sz);
         if (ctx->data == NULL) return 0;
     }
 
-    // Write the data to the current offset.
-    memcpy(ctx->data+current_offset, data, data_sz);
+    return 1;
+}
 
-    // Write the header to the entry section.
-    struct rcbin_entry_header eh;
+
+int ctx_add(rcbin_context* ctx, const char* name, void* data, size_t data_sz) {
+    size_t current_offset = ctx->data_offs;
     size_t name_sz = strlen(name);
+    if (!ctx_grow(ctx, sizeof(rcbin_entry_header) + name_sz + data_sz)) return 0;
+
+    // Setup the entry header.
+    struct rcbin_entry_header eh;
 
     eh.name_sz = name_sz;
     eh.data_sz = data_sz;
-    eh.offs = current_offset;
 
-    if (ctx->entries+sizeof(eh)+name_sz > ctx->entries_end) {
-        return 0;
-    }
-
-    memcpy(ctx->entries, &eh, sizeof(eh));
-    memcpy(ctx->entries+sizeof(eh), name, name_sz);
-    ctx->entries += sizeof(eh)+name_sz;
+    // Write the header and data.
+    memcpy(ctx->data+current_offset, &eh, sizeof(eh));
+    current_offset += sizeof(eh);
+    memcpy(ctx->data+current_offset, name, name_sz);
+    current_offset += name_sz;
+    memcpy(ctx->data+current_offset, data, data_sz);
+    current_offset += data_sz;
 
     return 1;
 }
 
 
 int ctx_save(rcbin_context* ctx) {
-    elf_flagelf(ctx->e, ELF_C_SET, ELF_F_LAYOUT);
+    size_t current_offset = ctx->data_offs;
+    if (!ctx_grow(ctx, sizeof(uint64_t))) return 0;
 
-    if (elf_update(ctx->e, ELF_C_WRITE) == -1) return 0;
-    elf_end(ctx->e);
+    // a name_sz of 0 signifies the end
+    uint64_t tail = 0;
+    memcpy(ctx->data+current_offset, &tail, sizeof(uint64_t));
+
+    if (lseek(ctx->fd, ctx->root_in_file_offs, SEEK_SET) == -1) return 0;
+    if (write(ctx->fd, &ctx->root, sizeof(rcbin_root)) == -1) return 0;
 
     if (lseek(ctx->fd, ctx->data_in_file_offs, SEEK_SET) == -1) return 0;
     if (write(ctx->fd, ctx->data, ctx->data_offs) == -1) return 0;
-    fsync(ctx->fd);
 
+    fsync(ctx->fd);
     close(ctx->fd);
+
     free(ctx->data);
     return 1;
 }

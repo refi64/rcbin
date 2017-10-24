@@ -36,28 +36,26 @@ void rcbin_lookup(const char* name, const void** data_out, size_t* sz_out) {
 #include <fcntl.h>
 
 
-// This table will be modified by rcbin to contain pointers to the different resources.
-char __rcbin_internal_entries[RCBIN_HEADER_SIZE]
+// This will be modified
+rcbin_root __rcbin_internal_root
                 __attribute__((__section__(RCBIN_SECTION))) = {0};
-// Contains the rcbin binary resource data of the executable file.
-static void* current_exe_data = NULL;
-
-#define ROOT_HEADER ((rcbin_root_header*)__rcbin_internal_entries)
+// Contains the rcbin entries from the executable file.
+static void* entries = NULL;
 
 
 static void read_executable_path(const char* path) {
     int fd = open(path, O_RDONLY);
     if (fd == -1) return;
 
-    if (lseek(fd, ROOT_HEADER->offs, SEEK_SET) == -1) return;
+    if (lseek(fd, __rcbin_internal_root.offs, SEEK_SET) == -1) return;
 
     size_t total_sz = lseek(fd, 0, SEEK_END);
     if (total_sz == -1) return;
 
-    if (total_sz < ROOT_HEADER->offs) return;
-    if (lseek(fd, ROOT_HEADER->offs, SEEK_SET) == -1) return;
+    if (total_sz < __rcbin_internal_root.offs) return;
+    if (lseek(fd, __rcbin_internal_root.offs, SEEK_SET) == -1) return;
 
-    size_t sz = total_sz - ROOT_HEADER->offs;
+    size_t sz = total_sz - __rcbin_internal_root.offs;
 
     void* buf = malloc(sz);
     if (read(fd, buf, sz) == -1) {
@@ -65,7 +63,7 @@ static void read_executable_path(const char* path) {
         return;
     }
 
-    current_exe_data = buf;
+    entries = buf;
 }
 
 
@@ -128,29 +126,31 @@ static void read_executable() {
 
 
 int rcbin_init() {
-    if (ROOT_HEADER->magic != RCBIN_MAGIC) return 0;
+    if (__rcbin_internal_root.magic != RCBIN_MAGIC) return 0;
 
     read_executable();
-    return current_exe_data != NULL;
+    return entries != NULL;
 }
 
 
 void rcbin_lookup(const char* name, const void** data_out, size_t* sz_out) {
-    const void* pos = __rcbin_internal_entries+sizeof(rcbin_root_header);
+    const void* pos = entries;
     size_t name_sz = strlen(name);
 
-    // Scan through the internal entries.
-    while (pos < (void*)(__rcbin_internal_entries+RCBIN_HEADER_SIZE)) {
+    for (;;) {
         // Grab the header and check the name. If it's the one we're looking for, then
-        // grab the data from the exe and return.
+        // return the data.
         rcbin_entry_header* eh = (rcbin_entry_header*)pos;
-        const char* e_name_begin = pos+sizeof(rcbin_entry_header);
+        if (eh->name_sz == 0) break; // name_sz == 0 signifies the end
+
+        const char* e_name_begin = pos + sizeof(rcbin_entry_header);
         if (eh->name_sz == name_sz && memcmp(e_name_begin, name, name_sz) == 0) {
-            *data_out = current_exe_data+eh->offs;
+            *data_out = e_name_begin + eh->name_sz;
             *sz_out = eh->data_sz;
             return;
         }
-        pos += sizeof(rcbin_entry_header)+eh->name_sz;
+
+        pos += sizeof(rcbin_entry_header) + eh->name_sz + eh->data_sz;
     }
 }
 

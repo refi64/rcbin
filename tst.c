@@ -10,6 +10,7 @@ RCBIN_IMPORT(abc)
 int main() {
     if (!rcbin_init()) {
         puts("Failed to initialize rcbin.");
+        return 1;
     }
 
     rcbin_entry message_data = abc();

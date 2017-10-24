@@ -25,28 +25,24 @@
 
 #include <inttypes.h>
 
-#ifndef RCBIN_HEADER_SIZE
-#define RCBIN_HEADER_SIZE 4096
-#endif
-
 #define RCBIN_PLATFORM_PREFIX ""
 #define RCBIN_MAGIC 0x3CB1
 
 
 #ifdef RCBIN_INTERNAL
 
-#define RCBIN_SECTION "__rcbin_internal_entries_section"
+#define RCBIN_SECTION "__rcbin_internal_root"
 
-typedef struct rcbin_root_header rcbin_root_header;
+typedef struct rcbin_root rcbin_root;
 typedef struct rcbin_entry_header rcbin_entry_header;
 
-struct rcbin_root_header {
+struct rcbin_root {
     uint32_t magic;
     uint64_t offs;
 };
 
 struct rcbin_entry_header {
-    uint64_t name_sz, data_sz, offs;
+    uint64_t name_sz, data_sz;
 };
 
 
