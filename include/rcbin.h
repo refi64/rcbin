@@ -31,7 +31,7 @@
 
 #ifdef RCBIN_INTERNAL
 
-#define RCBIN_SECTION "__rcbin_internal_root"
+#define RCBIN_SECTION "__rcbin_internal_root_section"
 
 typedef struct rcbin_root rcbin_root;
 typedef struct rcbin_entry_header rcbin_entry_header;
