@@ -1,5 +1,5 @@
 from fbuild.builders.platform import guess_platform
-from fbuild.builders.c import guess_static
+from fbuild.builders.c import guess
 
 from fbuild.config.c import cacheproperty, header_test, Test
 
@@ -10,18 +10,16 @@ from optparse import make_option
 import ast
 
 
-def pre_options(parser):
-    group = parser.add_option_group('config options')
-    group.add_options((
-        make_option('--cc', help='Use the given C compiler'),
-        make_option('--cflag', help='Pass the given flag to the C compiler',
-                    action='append', default=[]),
-        make_option('--use-color', help='Force C++ compiler colored output',
-                    action='store_true', default=True),
-        make_option('--release', help='Build in release mode',
-                    action='store_true', default=False),
-        make_option('--platform', help='Use the given target platform for building'),
-    ))
+def arguments(parser):
+    group = parser.add_argument_group('config options')
+    group.add_argument('--cc', help='Use the given C compiler'),
+    group.add_argument('--cflag', help='Pass the given flag to the C compiler',
+                       action='append', default=[]),
+    group.add_argument('--use-color', help='Force C++ compiler colored output',
+                       action='store_true', default=True),
+    group.add_argument('--release', help='Build in release mode',
+                       action='store_true', default=False),
+    group.add_argument('--platform', help='Use the given target platform for building'),
 
 
 class libelf(Test):
@@ -50,7 +48,7 @@ def configure(ctx):
         optimize = False
         clang_flags.append('-fno-limit-debug-info')
 
-    c = guess_static(ctx, platform=platform, exe=ctx.options.cc, flags=flags,
+    c = guess.static(ctx, platform=platform, exe=ctx.options.cc, flags=flags,
                      debug=debug, optimize=optimize, platform_options=[
                         ({'clang'}, {'flags+': clang_flags}),
                         ({'posix'}, {'flags+': posix_flags,
